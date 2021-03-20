@@ -114,6 +114,11 @@ binary: cmd/skopeo
 	${CONTAINER_RUNTIME} run --rm --security-opt label=disable -v $$(pwd):/src/github.com/containers/skopeo \
 		skopeobuildimage make bin/skopeo $(if $(DEBUG),DEBUG=$(DEBUG)) BUILDTAGS='$(BUILDTAGS)'
 
+binary-cross: cmd/skopeo
+	${CONTAINER_RUNTIME} build ${BUILD_ARGS} -f Dockerfile.build -t skopeobuildimage .
+	${CONTAINER_RUNTIME} run --rm --security-opt label=disable -v $$(pwd):/src/github.com/containers/skopeo \
+		skopeobuildimage make local-cross $(if $(DEBUG),DEBUG=$(DEBUG)) $(if $(BUILD_OS),BUILD_OS=$(BUILD_OS)) BUILDTAGS='$(BUILDTAGS)'
+
 # Update nix/nixpkgs.json its latest stable commit
 .PHONY: nixpkgs
 nixpkgs:
