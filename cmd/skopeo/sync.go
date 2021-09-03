@@ -27,16 +27,18 @@ import (
 
 // syncOptions contains information retrieved from the skopeo sync command line.
 type syncOptions struct {
-	global            *globalOptions    // Global (not command dependent) skopeo options
-	srcImage          *imageOptions     // Source image options
-	destImage         *imageDestOptions // Destination image options
-	retryOpts         *retry.RetryOptions
-	removeSignatures  bool   // Do not copy signatures from the source image
-	signByFingerprint string // Sign the image using a GPG key with the specified fingerprint
-	source            string // Source repository name
-	destination       string // Destination registry name
-	scoped            bool   // When true, namespace copied images at destination using the source repository name
-	all               bool   // Copy all of the images if an image in the source is a list
+	global              *globalOptions // Global (not command dependent) skopeo options
+	deprecatedTLSVerify *deprecatedTLSVerifyOption
+	srcImage            *imageOptions     // Source image options
+	destImage           *imageDestOptions // Destination image options
+	retryOpts           *retry.RetryOptions
+	removeSignatures    bool           // Do not copy signatures from the source image
+	signByFingerprint   string         // Sign the image using a GPG key with the specified fingerprint
+	format              optionalString // Force conversion of the image to a specified format
+	source              string         // Source repository name
+	destination         string         // Destination registry name
+	scoped              bool           // When true, namespace copied images at destination using the source repository name
+	all                 bool           // Copy all of the images if an image in the source is a list
 }
 
 // repoDescriptor contains information of a single repository used as a sync source.
@@ -46,7 +48,7 @@ type repoDescriptor struct {
 	Context     *types.SystemContext   // SystemContext for the sync command
 }
 
-// tlsVerify is an implementation of the Unmarshaler interface, used to
+// tlsVerifyConfig is an implementation of the Unmarshaler interface, used to
 // customize the unmarshaling behaviour of the tls-verify YAML key.
 type tlsVerifyConfig struct {
 	skip types.OptionalBool // skip TLS verification check (false by default)
@@ -67,27 +69,29 @@ type sourceConfig map[string]registrySyncConfig
 
 func syncCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
-	srcFlags, srcOpts := dockerImageFlags(global, sharedOpts, "src-", "screds")
-	destFlags, destOpts := dockerImageFlags(global, sharedOpts, "dest-", "dcreds")
+	deprecatedTLSVerifyFlags, deprecatedTLSVerifyOpt := deprecatedTLSVerifyFlags()
+	srcFlags, srcOpts := dockerImageFlags(global, sharedOpts, deprecatedTLSVerifyOpt, "src-", "screds")
+	destFlags, destOpts := dockerImageFlags(global, sharedOpts, deprecatedTLSVerifyOpt, "dest-", "dcreds")
 	retryFlags, retryOpts := retryFlags()
 
 	opts := syncOptions{
-		global:    global,
-		srcImage:  srcOpts,
-		destImage: &imageDestOptions{imageOptions: destOpts},
-		retryOpts: retryOpts,
+		global:              global,
+		deprecatedTLSVerify: deprecatedTLSVerifyOpt,
+		srcImage:            srcOpts,
+		destImage:           &imageDestOptions{imageOptions: destOpts},
+		retryOpts:           retryOpts,
 	}
 
 	cmd := &cobra.Command{
-		Use:   "sync [command options] --src SOURCE-LOCATION --dest DESTINATION-LOCATION SOURCE DESTINATION",
+		Use:   "sync [command options] --src TRANSPORT --dest TRANSPORT SOURCE DESTINATION",
 		Short: "Synchronize one or more images from one location to another",
-		Long: fmt.Sprint(`Copy all the images from a SOURCE to a DESTINATION.
+		Long: `Copy all the images from a SOURCE to a DESTINATION.
 
 Allowed SOURCE transports (specified with --src): docker, dir, yaml.
 Allowed DESTINATION transports (specified with --dest): docker, dir.
 
 See skopeo-sync(1) for details.
-`),
+`,
 		RunE:    commandAction(opts.run),
 		Example: `skopeo sync --src docker --dest dir --scoped registry.example.com/busybox /media/usb`,
 	}
@@ -95,18 +99,20 @@ See skopeo-sync(1) for details.
 	flags := cmd.Flags()
 	flags.BoolVar(&opts.removeSignatures, "remove-signatures", false, "Do not copy signatures from SOURCE images")
 	flags.StringVar(&opts.signByFingerprint, "sign-by", "", "Sign the image using a GPG key with the specified `FINGERPRINT`")
+	flags.VarP(newOptionalStringValue(&opts.format), "format", "f", `MANIFEST TYPE (oci, v2s1, or v2s2) to use when syncing image(s) to a destination (default is manifest type of source, with fallbacks)`)
 	flags.StringVarP(&opts.source, "src", "s", "", "SOURCE transport type")
 	flags.StringVarP(&opts.destination, "dest", "d", "", "DESTINATION transport type")
 	flags.BoolVar(&opts.scoped, "scoped", false, "Images at DESTINATION are prefix using the full source image path as scope")
 	flags.BoolVarP(&opts.all, "all", "a", false, "Copy all images if SOURCE-IMAGE is a list")
 	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&deprecatedTLSVerifyFlags)
 	flags.AddFlagSet(&srcFlags)
 	flags.AddFlagSet(&destFlags)
 	flags.AddFlagSet(&retryFlags)
 	return cmd
 }
 
-// unmarshalYAML is the implementation of the Unmarshaler interface method
+// UnmarshalYAML is the implementation of the Unmarshaler interface method
 // method for the tlsVerifyConfig type.
 // It unmarshals the 'tls-verify' YAML key so that, when they key is not
 // specified, tls verification is enforced.
@@ -205,7 +211,6 @@ func getImageTags(ctx context.Context, sysCtx *types.SystemContext, repoRef refe
 		// Some registries may decide to block the "list all tags" endpoint.
 		// Gracefully allow the sync to continue in this case.
 		logrus.Warnf("Registry disallows tag list retrieval: %s", err)
-		break
 	default:
 		return tags, errors.Wrapf(err, "Error determining repository tags for image %s", name)
 	}
@@ -238,7 +243,7 @@ func imagesToCopyFromRepo(sys *types.SystemContext, repoRef reference.Named) ([]
 	return sourceReferences, nil
 }
 
-// imagesTopCopyFromDir builds a list of image references from the images found
+// imagesToCopyFromDir builds a list of image references from the images found
 // in the source directory.
 // It returns an image reference slice with as many elements as the images found
 // and any error encountered.
@@ -268,7 +273,7 @@ func imagesToCopyFromDir(dirPath string) ([]types.ImageReference, error) {
 	return sourceReferences, nil
 }
 
-// imagesTopCopyFromDir builds a list of repository descriptors from the images
+// imagesToCopyFromRegistry builds a list of repository descriptors from the images
 // in a registry configuration.
 // It returns a repository descriptors slice with as many elements as the images
 // found and any error encountered. Each element of the slice is a list of
@@ -491,6 +496,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 	if len(args) != 2 {
 		return errorShouldDisplayUsage{errors.New("Exactly two arguments expected")}
 	}
+	opts.deprecatedTLSVerify.warnIfUsed([]string{"--src-tls-verify", "--dest-tls-verify"})
 
 	policyContext, err := opts.global.getPolicyContext()
 	if err != nil {
@@ -536,6 +542,14 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 		return err
 	}
 
+	var manifestType string
+	if opts.format.present {
+		manifestType, err = parseManifestFormat(opts.format.value)
+		if err != nil {
+			return err
+		}
+	}
+
 	ctx, cancel := opts.global.commandTimeoutContext()
 	defer cancel()
 
@@ -562,6 +576,7 @@ func (opts *syncOptions) run(args []string, stdout io.Writer) error {
 		DestinationCtx:                        destinationCtx,
 		ImageListSelection:                    imageListSelection,
 		OptimizeDestinationImageAlreadyExists: true,
+		ForceManifestMIMEType:                 manifestType,
 	}
 
 	for _, srcRepo := range srcRepoList {

@@ -12,7 +12,6 @@ import (
 type loginOptions struct {
 	global    *globalOptions
 	loginOpts auth.LoginOptions
-	getLogin  optionalBool
 	tlsVerify optionalBool
 }
 
@@ -21,7 +20,7 @@ func loginCmd(global *globalOptions) *cobra.Command {
 		global: global,
 	}
 	cmd := &cobra.Command{
-		Use:     "login",
+		Use:     "login [command options] REGISTRY",
 		Short:   "Login to a container registry",
 		Long:    "Login to a container registry on a specified server.",
 		RunE:    commandAction(opts.run),
@@ -39,6 +38,7 @@ func (opts *loginOptions) run(args []string, stdout io.Writer) error {
 	defer cancel()
 	opts.loginOpts.Stdout = stdout
 	opts.loginOpts.Stdin = os.Stdin
+	opts.loginOpts.AcceptRepositories = true
 	sys := opts.global.newSystemContext()
 	if opts.tlsVerify.present {
 		sys.DockerInsecureSkipTLSVerify = types.NewOptionalBool(!opts.tlsVerify.value)

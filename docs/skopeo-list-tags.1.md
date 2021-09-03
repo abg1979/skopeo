@@ -1,29 +1,47 @@
 % skopeo-list-tags(1)
 
 ## NAME
-skopeo\-list\-tags - Return a list of tags for the transport-specific image repository.
+skopeo\-list\-tags - List tags in the transport-specific image repository.
 
 ## SYNOPSIS
-**skopeo list-tags** _repository-name_
+**skopeo list-tags** [*options*] _repository-name_
 
 Return a list of tags from _repository-name_ in a registry.
 
   _repository-name_ name of repository to retrieve tag listing from
 
-  **--authfile** _path_
+## OPTIONS
 
-  Path of the authentication file. Default is ${XDG\_RUNTIME\_DIR}/containers/auth.json, which is set using `skopeo login`.
+**--authfile** _path_
+
+Path of the authentication file. Default is ${XDG\_RUNTIME\_DIR}/containers/auth.json, which is set using `skopeo login`.
   If the authorization state is not found there, $HOME/.docker/config.json is checked, which is set using `docker login`.
 
-  **--creds** _username[:password]_ for accessing the registry.
+**--creds** _username[:password]_ for accessing the registry.
 
-  **--cert-dir** _path_ Use certificates at _path_ (\*.crt, \*.cert, \*.key) to connect to the registry.
+**--cert-dir** _path_
 
-  **--tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container registries (defaults to true).
+Use certificates at _path_ (\*.crt, \*.cert, \*.key) to connect to the registry.
 
-  **--no-creds** _bool-value_ Access the registry anonymously.
+**--help**, **-h**
 
-  **--registry-token** _Bearer token_ for accessing the registry.
+Print usage statement
+
+**--no-creds** _bool-value_
+
+Access the registry anonymously.
+
+**--registry-token** _Bearer token_
+
+Bearer token for accessing the registry.
+
+**--retry-times**
+
+The number of times to retry. Retry wait time will be exponentially increased based on the number of failed attempts.
+
+**--tls-verify**=_bool_
+
+Require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)
 
 ## REPOSITORY NAMES
 
@@ -34,18 +52,18 @@ This commands refers to repositories using a _transport_`:`_details_ format. The
   **docker://**_docker-repository-reference_
   A repository in a registry implementing the "Docker Registry HTTP API V2". By default, uses the authorization state in either `$XDG_RUNTIME_DIR/containers/auth.json`, which is set using `(skopeo login)`. If the authorization state is not found there, `$HOME/.docker/config.json` is checked, which is set using `(docker login)`.
   A _docker-repository-reference_ is of the form: **registryhost:port/repositoryname** which is similar to an _image-reference_ but with no tag or digest allowed as the last component (e.g no `:latest` or `@sha256:xyz`)
-      
+
       Examples of valid docker-repository-references:
         "docker.io/myuser/myrepo"
         "docker.io/nginx"
         "docker.io/library/fedora"
         "localhost:5000/myrepository"
-        
+
       Examples of invalid references:
         "docker.io/nginx:latest"
         "docker.io/myuser/myimage:v1.0"
         "docker.io/myuser/myimage@sha256:f48c4cc192f4c3c6a069cb5cca6d0a9e34d6076ba7c214fd0cc3ca60e0af76bb"
-       
+
 
 ## EXAMPLES
 
@@ -101,4 +119,3 @@ skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5)
 ## AUTHORS
 
 Zach Hill <zach@anchore.com>
-

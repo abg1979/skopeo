@@ -4,7 +4,7 @@
 skopeo\-logout - Logout of a container registry.
 
 ## SYNOPSIS
-**skopeo logout** [*options*] *registry*
+**skopeo logout** [*options*] _registry_
 
 ## DESCRIPTION
 **skopeo logout** logs out of a specified registry server by deleting the cached credentials
@@ -28,6 +28,10 @@ Remove the cached credentials for all registries in the auth file
 **--help**, **-h**
 
 Print usage statement
+
+**--tls-verify**=_bool_
+
+Require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)
 
 ## EXAMPLES
 

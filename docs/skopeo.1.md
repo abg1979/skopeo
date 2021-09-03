@@ -51,42 +51,64 @@ See [containers-transports(5)](https://github.com/containers/image/blob/master/d
 
 ## OPTIONS
 
-  **--command-timeout** _duration_ Timeout for the command execution.
+**--command-timeout** _duration_
 
-  **--debug** enable debug output
+Timeout for the command execution.
 
-  **--help**|**-h** Show help
+**--debug**
 
-  **--insecure-policy** Adopt an insecure, permissive policy that allows anything. This obviates the need for a policy file.
+enable debug output
 
-  **--override-arch** _arch_ Use _arch_ instead of the architecture of the machine for choosing images.
+**--help**, **-h**
 
-  **--override-os** _OS_ Use _OS_ instead of the running OS for choosing images.
+Show help
 
-  **--override-variant** _VARIANT_ Use _VARIANT_ instead of the running architecture variant for choosing images.
+**--insecure-policy**
 
-  **--policy** _path-to-policy_ Path to a policy.json file to use for verifying signatures and deciding whether an image is trusted, overriding the default trust policy file.
+Adopt an insecure, permissive policy that allows anything. This obviates the need for a policy file.
 
-  **--registries.d** _dir_ use registry configuration files in _dir_ (e.g. for container signature storage), overriding the default path.
+**--override-arch** _arch_
 
-  **--tmpdir** _dir_ used to store temporary files. Defaults to /var/tmp.
+Use _arch_ instead of the architecture of the machine for choosing images.
 
-  **--version**|**-v** print the version number
+**--override-os** _os_
+
+Use _OS_ instead of the running OS for choosing images.
+
+**--override-variant** _variant_
+
+Use _variant_ instead of the running architecture variant for choosing images.
+
+**--policy** _path-to-policy_
+
+Path to a policy.json file to use for verifying signatures and deciding whether an image is trusted, overriding the default trust policy file.
+
+**--registries.d** _dir_
+
+Use registry configuration files in _dir_ (e.g. for container signature storage), overriding the default path.
+
+**--tmpdir** _dir_
+
+Directory used to store temporary files. Defaults to /var/tmp.
+
+**--version**, **-v**
+
+Print the version number
 
 ## COMMANDS
 
 | Command                                   | Description                                                                    |
 | ----------------------------------------- | ------------------------------------------------------------------------------ |
 | [skopeo-copy(1)](skopeo-copy.1.md)        | Copy an image (manifest, filesystem layers, signatures) from one location to another. |
-| [skopeo-delete(1)](skopeo-delete.1.md)    | Mark image-name for deletion.                                                  |
-| [skopeo-inspect(1)](skopeo-inspect.1.md)  | Return low-level information about image-name in a registry.                   |
-| [skopeo-list-tags(1)](skopeo-list-tags.1.md)  | List the tags for the given transport/repository.                           |
+| [skopeo-delete(1)](skopeo-delete.1.md)    | Mark the _image-name_ for later deletion by the registry's garbage collector.  |
+| [skopeo-inspect(1)](skopeo-inspect.1.md)  | Return low-level information about _image-name_ in a registry.                 |
+| [skopeo-list-tags(1)](skopeo-list-tags.1.md)  | List tags in the transport-specific image repository.                      |
 | [skopeo-login(1)](skopeo-login.1.md)  | Login to a container registry. |
 | [skopeo-logout(1)](skopeo-logout.1.md)  | Logout of a container registry. |
-| [skopeo-manifest-digest(1)](skopeo-manifest-digest.1.md)    | Compute a manifest digest of manifest-file and write it to standard output.|
-| [skopeo-standalone-sign(1)](skopeo-standalone-sign.1.md)    | Sign an image.                                               |
-| [skopeo-standalone-verify(1)](skopeo-standalone-verify.1.md)| Verify an image.                                             |
-| [skopeo-sync(1)](skopeo-sync.1.md)| Copy images from one or more repositories to a user specified destination.             |
+| [skopeo-manifest-digest(1)](skopeo-manifest-digest.1.md)    | Compute a manifest digest for a manifest-file and write it to standard output. |
+| [skopeo-standalone-sign(1)](skopeo-standalone-sign.1.md)    | Debugging tool - Publish and sign an image in one step.      |
+| [skopeo-standalone-verify(1)](skopeo-standalone-verify.1.md)| Verify an image signature.                                   |
+| [skopeo-sync(1)](skopeo-sync.1.md)| Synchronize images between container registries and local directories.                 |
 
 ## FILES
   **/etc/containers/policy.json**

@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/containers/common/pkg/retry"
+	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -35,6 +39,35 @@ func commandAction(handler func(args []string, stdout io.Writer) error) func(cmd
 	}
 }
 
+// deprecatedTLSVerifyOption represents a deprecated --tls-verify option,
+// which was accepted for all subcommands, for a time.
+// Every user should call deprecatedTLSVerifyOption.warnIfUsed() as part of handling the CLI,
+// whether or not the value actually ends up being used.
+// DO NOT ADD ANY NEW USES OF THIS; just call dockerImageFlags with an appropriate, possibly empty, flagPrefix.
+type deprecatedTLSVerifyOption struct {
+	tlsVerify optionalBool // FIXME FIXME: Warn if this is used, or even if it is ignored.
+}
+
+// warnIfUsed warns if tlsVerify was set by the user, and suggests alternatives (which should
+// start with "--").
+// Every user should call this as part of handling the CLI, whether or not the value actually
+// ends up being used.
+func (opts *deprecatedTLSVerifyOption) warnIfUsed(alternatives []string) {
+	if opts.tlsVerify.present {
+		logrus.Warnf("'--tls-verify' is deprecated, instead use: %s", strings.Join(alternatives, ", "))
+	}
+}
+
+// deprecatedTLSVerifyFlags prepares the CLI flag writing into deprecatedTLSVerifyOption, and the managed deprecatedTLSVerifyOption structure.
+// DO NOT ADD ANY NEW USES OF THIS; just call dockerImageFlags with an appropriate, possibly empty, flagPrefix.
+func deprecatedTLSVerifyFlags() (pflag.FlagSet, *deprecatedTLSVerifyOption) {
+	opts := deprecatedTLSVerifyOption{}
+	fs := pflag.FlagSet{}
+	flag := optionalBoolFlag(&fs, &opts.tlsVerify, "tls-verify", "require HTTPS and verify certificates when accessing the container registry (defaults to true)")
+	flag.Hidden = true
+	return fs, &opts
+}
+
 // sharedImageOptions collects CLI flags which are image-related, but do not change across images.
 // This really should be a part of globalOptions, but that would break existing users of (skopeo copy --authfile=).
 type sharedImageOptions struct {
@@ -53,14 +86,15 @@ func sharedImageFlags() (pflag.FlagSet, *sharedImageOptions) {
 // the same across subcommands, but may be different for each image
 // (e.g. may differ between the source and destination of a copy)
 type dockerImageOptions struct {
-	global         *globalOptions      // May be shared across several imageOptions instances.
-	shared         *sharedImageOptions // May be shared across several imageOptions instances.
-	authFilePath   optionalString      // Path to a */containers/auth.json (prefixed version to override shared image option).
-	credsOption    optionalString      // username[:password] for accessing a registry
-	registryToken  optionalString      // token to be used directly as a Bearer token when accessing the registry
-	dockerCertPath string              // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
-	tlsVerify      optionalBool        // Require HTTPS and verify certificates (for docker: and docker-daemon:)
-	noCreds        bool                // Access the registry anonymously
+	global              *globalOptions             // May be shared across several imageOptions instances.
+	shared              *sharedImageOptions        // May be shared across several imageOptions instances.
+	deprecatedTLSVerify *deprecatedTLSVerifyOption // May be shared across several imageOptions instances, or nil.
+	authFilePath        optionalString             // Path to a */containers/auth.json (prefixed version to override shared image option).
+	credsOption         optionalString             // username[:password] for accessing a registry
+	registryToken       optionalString             // token to be used directly as a Bearer token when accessing the registry
+	dockerCertPath      string                     // A directory using Docker-like *.{crt,cert,key} files for connecting to a registry or a daemon
+	tlsVerify           optionalBool               // Require HTTPS and verify certificates (for docker: and docker-daemon:)
+	noCreds             bool                       // Access the registry anonymously
 }
 
 // imageOptions collects CLI flags which are the same across subcommands, but may be different for each image
@@ -73,11 +107,12 @@ type imageOptions struct {
 
 // dockerImageFlags prepares a collection of docker-transport specific CLI flags
 // writing into imageOptions, and the managed imageOptions structure.
-func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
+func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, deprecatedTLSVerify *deprecatedTLSVerifyOption, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
 	flags := imageOptions{
 		dockerImageOptions: dockerImageOptions{
-			global: global,
-			shared: shared,
+			global:              global,
+			shared:              shared,
+			deprecatedTLSVerify: deprecatedTLSVerify,
 		},
 	}
 
@@ -101,18 +136,14 @@ func dockerImageFlags(global *globalOptions, shared *sharedImageOptions, flagPre
 }
 
 // imageFlags prepares a collection of CLI flags writing into imageOptions, and the managed imageOptions structure.
-func imageFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
-	dockerFlags, opts := dockerImageFlags(global, shared, flagPrefix, credsOptionAlias)
+func imageFlags(global *globalOptions, shared *sharedImageOptions, deprecatedTLSVerify *deprecatedTLSVerifyOption, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageOptions) {
+	dockerFlags, opts := dockerImageFlags(global, shared, deprecatedTLSVerify, flagPrefix, credsOptionAlias)
 
 	fs := pflag.FlagSet{}
 	fs.StringVar(&opts.sharedBlobDir, flagPrefix+"shared-blob-dir", "", "`DIRECTORY` to use to share blobs across OCI repositories")
 	fs.StringVar(&opts.dockerDaemonHost, flagPrefix+"daemon-host", "", "use docker daemon host at `HOST` (docker-daemon: only)")
 	fs.AddFlagSet(&dockerFlags)
 	return fs, opts
-}
-
-type retryOptions struct {
-	maxRetry int // The number of times to possibly retry
 }
 
 func retryFlags() (pflag.FlagSet, *retry.RetryOptions) {
@@ -135,6 +166,10 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 	ctx.DockerDaemonCertPath = opts.dockerCertPath
 	if opts.dockerImageOptions.authFilePath.present {
 		ctx.AuthFilePath = opts.dockerImageOptions.authFilePath.value
+	}
+	if opts.deprecatedTLSVerify != nil && opts.deprecatedTLSVerify.tlsVerify.present {
+		// If both this deprecated option and a non-deprecated option is present, we use the latter value.
+		ctx.DockerInsecureSkipTLSVerify = types.NewOptionalBool(!opts.deprecatedTLSVerify.tlsVerify.value)
 	}
 	if opts.tlsVerify.present {
 		ctx.DockerDaemonInsecureSkipTLSVerify = !opts.tlsVerify.value
@@ -166,18 +201,20 @@ func (opts *imageOptions) newSystemContext() (*types.SystemContext, error) {
 type imageDestOptions struct {
 	*imageOptions
 	dirForceCompression         bool        // Compress layers when saving to the dir: transport
+	dirForceDecompression       bool        // Decompress layers when saving to the dir: transport
 	ociAcceptUncompressedLayers bool        // Whether to accept uncompressed layers in the oci: transport
 	compressionFormat           string      // Format to use for the compression
 	compressionLevel            optionalInt // Level to use for the compression
 }
 
 // imageDestFlags prepares a collection of CLI flags writing into imageDestOptions, and the managed imageDestOptions structure.
-func imageDestFlags(global *globalOptions, shared *sharedImageOptions, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageDestOptions) {
-	genericFlags, genericOptions := imageFlags(global, shared, flagPrefix, credsOptionAlias)
+func imageDestFlags(global *globalOptions, shared *sharedImageOptions, deprecatedTLSVerify *deprecatedTLSVerifyOption, flagPrefix, credsOptionAlias string) (pflag.FlagSet, *imageDestOptions) {
+	genericFlags, genericOptions := imageFlags(global, shared, deprecatedTLSVerify, flagPrefix, credsOptionAlias)
 	opts := imageDestOptions{imageOptions: genericOptions}
 	fs := pflag.FlagSet{}
 	fs.AddFlagSet(&genericFlags)
 	fs.BoolVar(&opts.dirForceCompression, flagPrefix+"compress", false, "Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)")
+	fs.BoolVar(&opts.dirForceDecompression, flagPrefix+"decompress", false, "Decompress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source)")
 	fs.BoolVar(&opts.ociAcceptUncompressedLayers, flagPrefix+"oci-accept-uncompressed-layers", false, "Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed)")
 	fs.StringVar(&opts.compressionFormat, flagPrefix+"compress-format", "", "`FORMAT` to use for the compression")
 	fs.Var(newOptionalIntValue(&opts.compressionLevel), flagPrefix+"compress-level", "`LEVEL` to use for the compression")
@@ -193,6 +230,7 @@ func (opts *imageDestOptions) newSystemContext() (*types.SystemContext, error) {
 	}
 
 	ctx.DirForceCompress = opts.dirForceCompression
+	ctx.DirForceDecompress = opts.dirForceDecompression
 	ctx.OCIAcceptUncompressedLayers = opts.ociAcceptUncompressedLayers
 	if opts.compressionFormat != "" {
 		cf, err := compression.AlgorithmByName(opts.compressionFormat)
@@ -244,6 +282,21 @@ func parseImageSource(ctx context.Context, opts *imageOptions, name string) (typ
 		return nil, err
 	}
 	return ref.NewImageSource(ctx, sys)
+}
+
+// parseManifestFormat parses format parameter for copy and sync command.
+// It returns string value to use as manifest MIME type
+func parseManifestFormat(manifestFormat string) (string, error) {
+	switch manifestFormat {
+	case "oci":
+		return imgspecv1.MediaTypeImageManifest, nil
+	case "v2s1":
+		return manifest.DockerV2Schema1SignedMediaType, nil
+	case "v2s2":
+		return manifest.DockerV2Schema2MediaType, nil
+	default:
+		return "", fmt.Errorf("unknown format %q. Choose one of the supported formats: 'oci', 'v2s1', or 'v2s2'", manifestFormat)
+	}
 }
 
 // usageTemplate returns the usage template for skopeo commands

@@ -4,7 +4,7 @@
 skopeo\-login - Login to a container registry.
 
 ## SYNOPSIS
-**skopeo login** [*options*] *registry*
+**skopeo login** [*options*] _registry_
 
 ## DESCRIPTION
 **skopeo login** logs into a specified registry server with the correct username
@@ -43,15 +43,17 @@ Return the logged-in user for the registry. Return error if no login is found.
 Use certificates at *path* (\*.crt, \*.cert, \*.key) to connect to the registry.
 Default certificates directory is _/etc/containers/certs.d_.
 
-**--tls-verify**=*true|false*
-
-Require HTTPS and verify certificates when contacting registries (default: true). If explicitly set to true,
-then TLS verification will be used. If set to false, then TLS verification will not be used. If not specified,
-TLS verification will be used unless the target registry is listed as an insecure registry in registries.conf.
-
 **--help**, **-h**
 
 Print usage statement
+
+**--tls-verify**=_bool_
+
+Require HTTPS and verify certificates when talking to the container registry or daemon (defaults to true)
+
+**--verbose**, **-v**
+
+Write more detailed information to stdout
 
 ## EXAMPLES
 

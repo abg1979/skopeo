@@ -10,11 +10,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-check/check"
+	"github.com/containers/image/v5/manifest"
+	"gopkg.in/check.v1"
 )
 
 const skopeoBinary = "skopeo"
 const decompressDirsBinary = "./decompress-dirs.sh"
+
+const testFQIN = "docker://quay.io/libpod/busybox" // tag left off on purpose, some tests need to add a special one
+const testFQIN64 = "docker://quay.io/libpod/busybox:amd64"
+const testFQINMultiLayer = "docker://quay.io/libpod/alpine_nginx:master" // multi-layer
 
 // consumeAndLogOutputStream takes (f, err) from an exec.*Pipe(), and causes all output to it to be logged to c.
 func consumeAndLogOutputStream(c *check.C, id string, f io.ReadCloser, err error) {
@@ -199,4 +204,12 @@ func runDecompressDirs(c *check.C, regexp string, args ...string) {
 	if regexp != "" {
 		c.Assert(string(out), check.Matches, "(?s)"+regexp) // (?s) : '.' will also match newlines
 	}
+}
+
+// Verify manifest in a dir: image at dir is expectedMIMEType.
+func verifyManifestMIMEType(c *check.C, dir string, expectedMIMEType string) {
+	manifestBlob, err := ioutil.ReadFile(filepath.Join(dir, "manifest.json"))
+	c.Assert(err, check.IsNil)
+	mimeType := manifest.GuessMIMEType(manifestBlob)
+	c.Assert(mimeType, check.Equals, expectedMIMEType)
 }

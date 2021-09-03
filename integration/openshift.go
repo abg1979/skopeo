@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -9,9 +10,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/pkg/homedir"
-	"github.com/go-check/check"
+	"gopkg.in/check.v1"
 )
 
 var adminKUBECONFIG = map[string]string{
@@ -62,6 +64,7 @@ func (cluster *openshiftCluster) startMaster(c *check.C) {
 	cmd := cluster.clusterCmd(nil, "openshift", "start", "master")
 	cluster.processes = append(cluster.processes, cmd)
 	stdout, err := cmd.StdoutPipe()
+	c.Assert(err, check.IsNil)
 	// Send both to the same pipe. This might cause the two streams to be mixed up,
 	// but logging actually goes only to stderr - this primarily ensure we log any
 	// unexpected output to stdout.
@@ -108,6 +111,8 @@ func (cluster *openshiftCluster) startMaster(c *check.C) {
 
 	gotPortCheck := false
 	gotLogCheck := false
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
 	for !gotPortCheck || !gotLogCheck {
 		c.Logf("Waiting for master")
 		select {
@@ -120,6 +125,8 @@ func (cluster *openshiftCluster) startMaster(c *check.C) {
 				c.Fatal("log check done, success message not found")
 			}
 			gotLogCheck = true
+		case <-ctx.Done():
+			c.Fatalf("Timed out waiting for master: %v", ctx.Err())
 		}
 	}
 	c.Logf("OK, master started!")
@@ -165,8 +172,14 @@ func (cluster *openshiftCluster) startRegistryProcess(c *check.C, port int, conf
 		terminatePortCheck <- true
 	}()
 	c.Logf("Waiting for registry to start")
-	<-portOpen
-	c.Logf("OK, Registry port open")
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	select {
+	case <-portOpen:
+		c.Logf("OK, Registry port open")
+	case <-ctx.Done():
+		c.Fatalf("Timed out waiting for registry to start: %v", ctx.Err())
+	}
 
 	return cmd
 }

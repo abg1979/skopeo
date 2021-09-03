@@ -34,7 +34,7 @@ type inspectOptions struct {
 
 func inspectCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
-	imageFlags, imageOpts := imageFlags(global, sharedOpts, "", "")
+	imageFlags, imageOpts := imageFlags(global, sharedOpts, nil, "", "")
 	retryFlags, retryOpts := retryFlags()
 	opts := inspectOptions{
 		global:    global,
@@ -220,13 +220,6 @@ func (opts *inspectOptions) run(args []string, stdout io.Writer) (retErr error) 
 	row := "{{range . }}" + report.NormalizeFormat(opts.format) + "{{end}}"
 	data = append(data, outputData)
 	return printTmpl(row, data)
-}
-
-func inspectNormalize(row string) string {
-	r := strings.NewReplacer(
-		".ImageID", ".Image",
-	)
-	return r.Replace(row)
 }
 
 func printTmpl(row string, data []interface{}) error {

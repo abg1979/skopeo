@@ -4,7 +4,7 @@
 skopeo\-copy - Copy an image (manifest, filesystem layers, signatures) from one location to another.
 
 ## SYNOPSIS
-**skopeo copy** [**--sign-by=**_key-ID_] _source-image destination-image_
+**skopeo copy** [*options*] _source-image_ _destination-image_
 
 ## DESCRIPTION
 Copy an image (manifest, filesystem layers, signatures) from one location to another.
@@ -20,7 +20,11 @@ automatically inherit any parts of the source name.
 
 ## OPTIONS
 
-**--all**
+**--additional-tag**=_strings_
+
+Additional tags (supports docker-archive).
+
+**--all**, **-a**
 
 If _source-image_ refers to a list of images, instead of copying just the image which matches the current OS and
 architecture (subject to the use of the global --override-os, --override-arch and --override-variant options), attempt to copy all of
@@ -42,51 +46,123 @@ Path of the authentication file for the source registry. Uses path given by `--a
 
 Path of the authentication file for the destination registry. Uses path given by `--authfile`, if not provided.
 
-**--format, -f** _manifest-type_ Manifest type (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)
+**--dest-shared-blob-dir** _directory_
 
-**--quiet, -q** suppress output information when copying images
+Directory to use to share blobs across OCI repositories.
 
-**--remove-signatures** do not copy signatures, if any, from _source-image_. Necessary when copying a signed image to a destination which does not support signatures.
+**--digestfile** _path_
 
-**--sign-by=**_key-id_ add a signature using that key ID for an image name corresponding to _destination-image_
+After copying the image, write the digest of the resulting image to the file.
 
-**--encryption-key** _protocol:keyfile_ specifies the encryption protocol, which can be JWE (RFC7516), PGP (RFC4880), and PKCS7 (RFC2315) and the key material required for image encryption. For instance, jwe:/path/to/key.pem or pgp:admin@example.com or pkcs7:/path/to/x509-file.
+**--encrypt-layer** _ints_
 
-**--decryption-key** _key[:passphrase]_ to be used for decryption of images. Key can point to keys and/or certificates. Decryption will be tried with all keys. If the key is protected by a passphrase, it is required to be passed in the argument and omitted otherwise.
+*Experimental* the 0-indexed layer indices, with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer)
 
-**--src-creds** _username[:password]_ for accessing the source registry.
+**--format**, **-f** _manifest-type_
 
-**--dest-compress** _bool-value_ Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source).
+MANIFEST TYPE (oci, v2s1, or v2s2) to use in the destination (default is manifest type of source, with fallbacks)
 
-**--dest-oci-accept-uncompressed-layers** _bool-value_ Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed).
+**--help**, **-h**
 
-**--dest-creds** _username[:password]_ for accessing the destination registry.
+Print usage statement
 
-**--src-cert-dir** _path_ Use certificates at _path_ (*.crt, *.cert, *.key) to connect to the source registry or daemon.
+**--quiet**, **-q**
 
-**--src-no-creds** _bool-value_ Access the registry anonymously.
+Suppress output information when copying images.
 
-**--src-tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container source registry or daemon (defaults to true).
+**--remove-signatures**
 
-**--dest-cert-dir** _path_ Use certificates at _path_ (*.crt, *.cert, *.key) to connect to the destination registry or daemon.
+Do not copy signatures, if any, from _source-image_. Necessary when copying a signed image to a destination which does not support signatures.
 
-**--dest-no-creds** _bool-value_  Access the registry anonymously.
+**--sign-by**=_key-id_
 
-**--dest-tls-verify** _bool-value_ Require HTTPS and verify certificates when talking to container destination registry or daemon (defaults to true).
+Add a signature using that key ID for an image name corresponding to _destination-image_
 
-**--src-daemon-host** _host_ Copy from docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).
+**--src-shared-blob-dir** _directory_
 
-**--dest-daemon-host** _host_ Copy to docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).
+Directory to use to share blobs across OCI repositories.
+
+**--encryption-key** _protocol:keyfile_
+
+Specifies the encryption protocol, which can be JWE (RFC7516), PGP (RFC4880), and PKCS7 (RFC2315) and the key material required for image encryption. For instance, jwe:/path/to/key.pem or pgp:admin@example.com or pkcs7:/path/to/x509-file.
+
+**--decryption-key** _key[:passphrase]_
+
+Key to be used for decryption of images. Key can point to keys and/or certificates. Decryption will be tried with all keys. If the key is protected by a passphrase, it is required to be passed in the argument and omitted otherwise.
+
+**--src-creds** _username[:password]_
+
+Credentials for accessing the source registry.
+
+**--dest-compress** _bool-value_
+
+Compress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source).
+
+**--dest-decompress** _bool-value_
+
+Decompress tarball image layers when saving to directory using the 'dir' transport. (default is same compression type as source).
+
+**--dest-oci-accept-uncompressed-layers** _bool-value_
+
+Allow uncompressed image layers when saving to an OCI image using the 'oci' transport. (default is to compress things that aren't compressed).
+
+**--dest-creds** _username[:password]_
+
+Credentials for accessing the destination registry.
+
+**--src-cert-dir** _path_
+
+Use certificates at _path_ (*.crt, *.cert, *.key) to connect to the source registry or daemon.
+
+**--src-no-creds** _bool-value_
+
+Access the registry anonymously.
+
+**--src-tls-verify** _bool-value_
+
+Require HTTPS and verify certificates when talking to container source registry or daemon (defaults to true).
+
+**--dest-cert-dir** _path_
+
+Use certificates at _path_ (*.crt, *.cert, *.key) to connect to the destination registry or daemon.
+
+**--dest-no-creds** _bool-value_
+
+Access the registry anonymously.
+
+**--dest-tls-verify** _bool-value_
+
+Require HTTPS and verify certificates when talking to container destination registry or daemon (defaults to true).
+
+**--src-daemon-host** _host_
+
+Copy from docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).
+
+**--dest-daemon-host** _host_
+
+Copy to docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).
 
 Existing signatures, if any, are preserved as well.
 
-**--dest-compress-format** _format_ Specifies the compression format to use.  Supported values are: `gzip` and `zstd`.
+**--dest-compress-format** _format_
 
-**--dest-compress-level** _format_ Specifies the compression level to use.  The value is specific to the compression algorithm used, e.g. for zstd the accepted values are in the range 1-20 (inclusive), while for gzip it is 1-9 (inclusive).
+Specifies the compression format to use.  Supported values are: `gzip` and `zstd`.
 
-**--src-registry-token** _Bearer token_ for accessing the source registry.
+**--dest-compress-level** _format_
 
-**--dest-registry-token** _Bearer token_ for accessing the destination registry.
+Specifies the compression level to use.  The value is specific to the compression algorithm used, e.g. for zstd the accepted values are in the range 1-20 (inclusive), while for gzip it is 1-9 (inclusive).
+
+**--src-registry-token** _token_
+
+Bearer token for accessing the source registry.
+
+**--dest-registry-token** _token_
+
+Bearer token for accessing the destination registry.
+
+**--retry-times**
+
+The number of times to retry. Retry wait time will be exponentially increased based on the number of failed attempts.
 
 ## EXAMPLES
 
@@ -144,9 +220,8 @@ skopeo  copy --encryption-key jwe:./public.key --encrypt-layer 1 oci:local_nginx
 ```
 
 ## SEE ALSO
-skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5), containers-policy.json(5), containers-transports(5)
+skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5), containers-policy.json(5), containers-transports(5), containers-signature(5)
 
 ## AUTHORS
 
 Antonio Murdaca <runcom@redhat.com>, Miloslav Trmac <mitr@redhat.com>, Jhon Honce <jhonce@redhat.com>
-

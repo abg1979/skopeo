@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/containers/common/pkg/retry"
@@ -12,38 +13,40 @@ import (
 	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/transports"
 	"github.com/containers/image/v5/transports/alltransports"
-	"github.com/spf13/cobra"
-
 	encconfig "github.com/containers/ocicrypt/config"
 	enchelpers "github.com/containers/ocicrypt/helpers"
-	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/spf13/cobra"
 )
 
 type copyOptions struct {
-	global            *globalOptions
-	srcImage          *imageOptions
-	destImage         *imageDestOptions
-	retryOpts         *retry.RetryOptions
-	additionalTags    []string       // For docker-archive: destinations, in addition to the name:tag specified as destination, also add these
-	removeSignatures  bool           // Do not copy signatures from the source image
-	signByFingerprint string         // Sign the image using a GPG key with the specified fingerprint
-	format            optionalString // Force conversion of the image to a specified format
-	quiet             bool           // Suppress output information when copying images
-	all               bool           // Copy all of the images if the source is a list
-	encryptLayer      []int          // The list of layers to encrypt
-	encryptionKeys    []string       // Keys needed to encrypt the image
-	decryptionKeys    []string       // Keys needed to decrypt the image
+	global              *globalOptions
+	deprecatedTLSVerify *deprecatedTLSVerifyOption
+	srcImage            *imageOptions
+	destImage           *imageDestOptions
+	retryOpts           *retry.RetryOptions
+	additionalTags      []string       // For docker-archive: destinations, in addition to the name:tag specified as destination, also add these
+	removeSignatures    bool           // Do not copy signatures from the source image
+	signByFingerprint   string         // Sign the image using a GPG key with the specified fingerprint
+	digestFile          string         // Write digest to this file
+	format              optionalString // Force conversion of the image to a specified format
+	quiet               bool           // Suppress output information when copying images
+	all                 bool           // Copy all of the images if the source is a list
+	encryptLayer        []int          // The list of layers to encrypt
+	encryptionKeys      []string       // Keys needed to encrypt the image
+	decryptionKeys      []string       // Keys needed to decrypt the image
 }
 
 func copyCmd(global *globalOptions) *cobra.Command {
 	sharedFlags, sharedOpts := sharedImageFlags()
-	srcFlags, srcOpts := imageFlags(global, sharedOpts, "src-", "screds")
-	destFlags, destOpts := imageDestFlags(global, sharedOpts, "dest-", "dcreds")
+	deprecatedTLSVerifyFlags, deprecatedTLSVerifyOpt := deprecatedTLSVerifyFlags()
+	srcFlags, srcOpts := imageFlags(global, sharedOpts, deprecatedTLSVerifyOpt, "src-", "screds")
+	destFlags, destOpts := imageDestFlags(global, sharedOpts, deprecatedTLSVerifyOpt, "dest-", "dcreds")
 	retryFlags, retryOpts := retryFlags()
 	opts := copyOptions{global: global,
-		srcImage:  srcOpts,
-		destImage: destOpts,
-		retryOpts: retryOpts,
+		deprecatedTLSVerify: deprecatedTLSVerifyOpt,
+		srcImage:            srcOpts,
+		destImage:           destOpts,
+		retryOpts:           retryOpts,
 	}
 	cmd := &cobra.Command{
 		Use:   "copy [command options] SOURCE-IMAGE DESTINATION-IMAGE",
@@ -61,6 +64,7 @@ See skopeo(1) section "IMAGE NAMES" for the expected format
 	adjustUsage(cmd)
 	flags := cmd.Flags()
 	flags.AddFlagSet(&sharedFlags)
+	flags.AddFlagSet(&deprecatedTLSVerifyFlags)
 	flags.AddFlagSet(&srcFlags)
 	flags.AddFlagSet(&destFlags)
 	flags.AddFlagSet(&retryFlags)
@@ -69,7 +73,8 @@ See skopeo(1) section "IMAGE NAMES" for the expected format
 	flags.BoolVarP(&opts.all, "all", "a", false, "Copy all images if SOURCE-IMAGE is a list")
 	flags.BoolVar(&opts.removeSignatures, "remove-signatures", false, "Do not copy signatures from SOURCE-IMAGE")
 	flags.StringVar(&opts.signByFingerprint, "sign-by", "", "Sign the image using a GPG key with the specified `FINGERPRINT`")
-	flags.VarP(newOptionalStringValue(&opts.format), "format", "f", `MANIFEST TYPE (oci, v2s1, or v2s2) to use when saving image to directory using the 'dir:' transport (default is manifest type of source)`)
+	flags.StringVar(&opts.digestFile, "digestfile", "", "Write the digest of the pushed image to the specified file")
+	flags.VarP(newOptionalStringValue(&opts.format), "format", "f", `MANIFEST TYPE (oci, v2s1, or v2s2) to use in the destination (default is manifest type of source, with fallbacks)`)
 	flags.StringSliceVar(&opts.encryptionKeys, "encryption-key", []string{}, "*Experimental* key with the encryption protocol to use needed to encrypt the image (e.g. jwe:/path/to/key.pem)")
 	flags.IntSliceVar(&opts.encryptLayer, "encrypt-layer", []int{}, "*Experimental* the 0-indexed layer indices, with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer)")
 	flags.StringSliceVar(&opts.decryptionKeys, "decryption-key", []string{}, "*Experimental* key needed to decrypt the image")
@@ -80,6 +85,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	if len(args) != 2 {
 		return errorShouldDisplayUsage{errors.New("Exactly two arguments expected")}
 	}
+	opts.deprecatedTLSVerify.warnIfUsed([]string{"--src-tls-verify", "--dest-tls-verify"})
 	imageNames := args
 
 	if err := reexecIfNecessaryForImages(imageNames...); err != nil {
@@ -112,15 +118,9 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 
 	var manifestType string
 	if opts.format.present {
-		switch opts.format.value {
-		case "oci":
-			manifestType = imgspecv1.MediaTypeImageManifest
-		case "v2s1":
-			manifestType = manifest.DockerV2Schema1SignedMediaType
-		case "v2s2":
-			manifestType = manifest.DockerV2Schema2MediaType
-		default:
-			return fmt.Errorf("unknown format %q. Choose one of the supported formats: 'oci', 'v2s1', or 'v2s2'", opts.format.value)
+		manifestType, err = parseManifestFormat(opts.format.value)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -184,7 +184,7 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 	}
 
 	return retry.RetryIfNecessary(ctx, func() error {
-		_, err = copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{
+		manifestBytes, err := copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{
 			RemoveSignatures:      opts.removeSignatures,
 			SignBy:                opts.signByFingerprint,
 			ReportWriter:          stdout,
@@ -196,6 +196,18 @@ func (opts *copyOptions) run(args []string, stdout io.Writer) error {
 			OciEncryptLayers:      encLayers,
 			OciEncryptConfig:      encConfig,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		if opts.digestFile != "" {
+			manifestDigest, err := manifest.Digest(manifestBytes)
+			if err != nil {
+				return err
+			}
+			if err = ioutil.WriteFile(opts.digestFile, []byte(manifestDigest.String()), 0644); err != nil {
+				return fmt.Errorf("Failed to write digest to file %q: %w", opts.digestFile, err)
+			}
+		}
+		return nil
 	}, opts.retryOpts)
 }
