@@ -19,6 +19,7 @@ jobs:
       with:
         ref: ${{ inputs.tags }}
         persist-credentials: true
+        fetch_depth: 0
     - name: Checkout Source for push
       if: ${{ github.event_name == 'push' }}
       uses: actions/checkout@v3
