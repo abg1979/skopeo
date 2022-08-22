@@ -15,7 +15,7 @@ jobs:
     - name: repo-sync
       uses: repo-sync/github-sync@v2
       with:
-        source_repo: "git@github.com:containers/skopeo.git"
+        source_repo: "containers/skopeo"
         source_branch: "*"
         destination_branch: "*"
         sync_tags: "true"
