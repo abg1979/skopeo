@@ -24,7 +24,7 @@ jobs:
     - name: Find Go Install Location
       shell: powershell
       run: |
-        $go_install_dir = (Get-Command java | Get-Item).Directory.FullName
+        $go_install_dir = (Get-Command go | Get-Item).Directory.FullName
         Add-Content -Path $env:GITHUB_ENV "MY_GO_INSTALL_DIR=$go_install_dir"
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -39,6 +39,7 @@ jobs:
     - shell: msys2 {0}
       run: |
         echo ${MY_GO_INSTALL_DIR}
+        export PATH=${PATH}:`cygpath ${MY_GO_INSTALL_DIR}`
         which go
         CGO_ENABLED=1 CC=${MSYSTEM_CHOST}-gcc CXX=${MSYSTEM_CHOST}-g++ mingw32-make.exe bin/skopeo
         ldd bin/skopeo | grep mingw64 | cut -d ' ' -f 3 | xargs -I{} cp -u {} bin
