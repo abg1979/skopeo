@@ -13,7 +13,14 @@ jobs:
   windows-release-build:
     runs-on: windows-latest
     steps:
-    - name: Checkout Source
+    - name: Checkout Source for dispatch
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.tags }}
+        persist-credentials: true
+    - name: Checkout Source for push
+      if: ${{ github.event_name == 'push' }}
       uses: actions/checkout@v3
       with:
         persist-credentials: true
