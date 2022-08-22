@@ -1,0 +1,42 @@
+on:
+  push:
+    tags:
+      - **
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag tp build."
+        required: true
+        type: string
+
+jobs:
+  windows-release-build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        persist-credentials: true
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          curl
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-gpgme
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-pkgconf
+    - shell: msys2 {0}
+      run: |
+        CGO_ENABLED=1 CC=${MSYSTEM_CHOST}-gcc CXX=${MSYSTEM_CHOST}-g++ mingw32-make.exe bin/skopeo
+        ldd bin/skopeo | grep mingw64 | cut -d ' ' -f 3 | xargs -I{} cp -u {} bin
+        mv bin/skopeo bin/skopeo.exe
+    - uses: actions/upload-artifact@v3
+      with:
+        name: windows-x86_64
+        path: bin
