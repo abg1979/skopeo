@@ -13,13 +13,17 @@ jobs:
   windows-release-build:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Source
+      uses: actions/checkout@v3
       with:
         persist-credentials: true
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version: 1.19
+    - name: Find Go Install Location
+      shell: powershell
+      run: Get-Command go
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
