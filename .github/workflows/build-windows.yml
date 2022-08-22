@@ -23,7 +23,9 @@ jobs:
         go-version: 1.19
     - name: Find Go Install Location
       shell: powershell
-      run: Get-Command go
+      run: |
+        $go_install_dir = (Get-Command java | Get-Item).Directory.FullName
+        Add-Content -Path $env:GITHUB_PATH $go_install_dir
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -37,6 +39,7 @@ jobs:
           mingw-w64-x86_64-pkgconf
     - shell: msys2 {0}
       run: |
+        which go
         CGO_ENABLED=1 CC=${MSYSTEM_CHOST}-gcc CXX=${MSYSTEM_CHOST}-g++ mingw32-make.exe bin/skopeo
         ldd bin/skopeo | grep mingw64 | cut -d ' ' -f 3 | xargs -I{} cp -u {} bin
         mv bin/skopeo bin/skopeo.exe
