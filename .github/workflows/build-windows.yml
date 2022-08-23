@@ -64,7 +64,7 @@ jobs:
       if: ${{ github.event_name == 'workflow_dispatch' }}
       shell: pwsh
       run: |
-        $current_release_tag = ${{ steps.current_release_dispatch.outputs.tag_name }}
+        $current_release_tag = "${{ steps.current_release_dispatch.outputs.tag_name }}"
         Add-Content -Path $env:GITHUB_ENV "MY_CURRENT_RELEASE_TAG_NAME=$current_release_tag"
     - name: Get current release for push
       env:
@@ -78,7 +78,7 @@ jobs:
       if: ${{ github.event_name == 'push' }}
       shell: pwsh
       run: |
-        $current_release_tag = ${{ steps.current_release_push.outputs.tag_name }}
+        $current_release_tag = "${{ steps.current_release_push.outputs.tag_name }}"
         Add-Content -Path $env:GITHUB_ENV "MY_CURRENT_RELEASE_TAG_NAME=$current_release_tag"
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.2
