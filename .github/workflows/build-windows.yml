@@ -30,7 +30,7 @@ jobs:
       with:
         go-version: 1.19
     - name: Find Go Install Location
-      shell: powershell
+      shell: pwsh
       run: |
         $go_install_dir = (Get-Command go | Get-Item).Directory.FullName
         Add-Content -Path $env:GITHUB_ENV "MY_GO_INSTALL_DIR=$go_install_dir"
@@ -53,29 +53,41 @@ jobs:
         mv bin/skopeo bin/skopeo.exe
         strip -x bin/skopeo.exe
     - name: Get current release for dispatch
-      id: current_release
+      id: current_release_dispatch
       uses: cardinalby/git-get-release-action@1.2.2
       if: ${{ github.event_name == 'workflow_dispatch' }}
       with:
         tag: ${{ inputs.tag }}
+    - name: Add current dispatch release tag to environment
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      shell: pwsh
+      run: |
+        $current_release_tag = ${{ steps.current_release_dispatch.outputs.tag_name }}
+        Add-Content -Path $env:GITHUB_ENV "MY_CURRENT_RELEASE_TAG_NAME=$current_release_tag"
     - name: Get current release for push
-      id: current_release
+      id: current_release_push
       uses: cardinalby/git-get-release-action@1.2.2
       if: ${{ github.event_name == 'push' }}
       with:
         commitSha: ${{ env.GITHUB_SHA }}
+    - name: Add current push release tag to environment
+      if: ${{ github.event_name == 'push' }}
+      shell: pwsh
+      run: |
+        $current_release_tag = ${{ steps.current_release_push.outputs.tag_name }}
+        Add-Content -Path $env:GITHUB_ENV "MY_CURRENT_RELEASE_TAG_NAME=$current_release_tag"
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.2
       with:
         type: 'zip'
-        filename: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
+        filename: 'skopeo-windows-x86_64-${{ env.MY_CURRENT_RELEASE_TAG_NAME }}.zip'
         path: bin
     - name: Upload files to GitHub release
       uses: svenstaro/upload-release-action@2.3.0
       with:
-        file: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
+        file: 'skopeo-windows-x86_64-${{ env.MY_CURRENT_RELEASE_TAG_NAME }}.zip'
         tag: ${{ steps.current_release.outputs.tag_name }}
     - uses: actions/upload-artifact@v3
       with:
         name: skopeo-windows-x86_64
-        path: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
+        path: 'skopeo-windows-x86_64-${{ env.MY_CURRENT_RELEASE_TAG_NAME }}.zip'
