@@ -90,7 +90,7 @@ jobs:
       uses: svenstaro/upload-release-action@2.3.0
       with:
         file: 'skopeo-windows-x86_64-${{ env.MY_CURRENT_RELEASE_TAG_NAME }}.zip'
-        tag: ${{ steps.current_release.outputs.tag_name }}
+        tag: ${{ env.MY_CURRENT_RELEASE_TAG_NAME }}
     - uses: actions/upload-artifact@v3
       with:
         name: skopeo-windows-x86_64
