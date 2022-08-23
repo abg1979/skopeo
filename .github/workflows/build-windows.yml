@@ -53,6 +53,8 @@ jobs:
         mv bin/skopeo bin/skopeo.exe
         strip -x bin/skopeo.exe
     - name: Get current release for dispatch
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}    
       id: current_release_dispatch
       uses: cardinalby/git-get-release-action@1.2.2
       if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -65,6 +67,8 @@ jobs:
         $current_release_tag = ${{ steps.current_release_dispatch.outputs.tag_name }}
         Add-Content -Path $env:GITHUB_ENV "MY_CURRENT_RELEASE_TAG_NAME=$current_release_tag"
     - name: Get current release for push
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}    
       id: current_release_push
       uses: cardinalby/git-get-release-action@1.2.2
       if: ${{ github.event_name == 'push' }}
