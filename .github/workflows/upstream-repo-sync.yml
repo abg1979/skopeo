@@ -18,10 +18,9 @@ jobs:
         destination_branch: "*"
         sync_tags: "true"
         github_token: ${{ secrets.PAT }}
-    - name: clone releases
-      uses: andrewthetechie/gha-clone-releases@v1
+    - name: Clone Github Releases
+      uses: andrewthetechie/gha-clone-releases@v1.3.4
       with:
         token: ${{ secrets.PAT }}
         src_repo: "containers/skopeo"
         target: "main"
-        
