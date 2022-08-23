@@ -52,7 +52,30 @@ jobs:
         ldd bin/skopeo | grep mingw64 | cut -d ' ' -f 3 | xargs -I{} cp -u {} bin
         mv bin/skopeo bin/skopeo.exe
         strip -x bin/skopeo.exe
+    - name: Get current release for dispatch
+      id: current_release
+      uses: cardinalby/git-get-release-action@1.2.2
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      with:
+        tag: ${{ inputs.tag }}
+    - name: Get current release for push
+      id: current_release
+      uses: cardinalby/git-get-release-action@1.2.2
+      if: ${{ github.event_name == 'push' }}
+      with:
+        commitSha: ${{ env.GITHUB_SHA }}
+    - name: Zip Release
+      uses: TheDoctor0/zip-release@0.6.2
+      with:
+        type: 'zip'
+        filename: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
+        path: bin
+    - name: Upload files to GitHub release
+      uses: svenstaro/upload-release-action@2.3.0
+      with:
+        file: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
+        tag: ${{ steps.current_release.outputs.tag_name }}
     - uses: actions/upload-artifact@v3
       with:
         name: skopeo-windows-x86_64
-        path: bin
+        path: 'skopeo-windows-x86_64-${{ steps.current_release.outputs.tag_name }}.zip'
