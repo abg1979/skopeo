@@ -91,3 +91,4 @@ jobs:
       with:
         file: 'bin/skopeo-windows-x86_64-${{ env.MY_CURRENT_RELEASE_TAG_NAME }}.zip'
         tag: ${{ env.MY_CURRENT_RELEASE_TAG_NAME }}
+        overwrite: 'true'
