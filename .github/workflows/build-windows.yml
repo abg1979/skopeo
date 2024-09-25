@@ -115,7 +115,7 @@ jobs:
       run: sudo apt-get -y install libgpgme-dev libassuan-dev libbtrfs-dev pkg-config
     - name: Build Skopeo
       run: |
-        CGO_ENABLED=1 make bin/skopeo
+        make bin/skopeo
         strip -x bin/skopeo
     - name: Get current release for dispatch
       env:
