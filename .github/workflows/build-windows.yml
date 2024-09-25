@@ -28,7 +28,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.21
+        go-version: 1.22
     - name: Find Go Install Location
       shell: pwsh
       run: |
@@ -110,7 +110,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.21
+        go-version: 1.22
     - name: Setup Ubuntu Packages
       run: sudo apt-get -y install libgpgme-dev libassuan-dev libbtrfs-dev pkg-config
     - name: Build Skopeo
