@@ -90,8 +90,7 @@ jobs:
 
   # Tests on ELN for main branch
   - job: tests
-    # FIXME: https://github.com/containers/skopeo/issues/2748
-    trigger: ignore
+    trigger: pull_request
     packages: [skopeo-eln]
     notifications: *test_failure_notification
     targets: *eln_copr_targets
