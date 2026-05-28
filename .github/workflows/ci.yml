@@ -9,17 +9,35 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  path-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      all: ${{ steps.filter.outputs.all }}
+      code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d  # v4.0.1
+        id: filter
+        with:
+          filters: .github/filters.yaml
+
   validate:
     runs-on: oracle-vm-4cpu-16gb-x86-64
     timeout-minutes: 45
     container:
       image: quay.io/libpod/skopeo_cidev:${{ vars.IMAGE_TAG }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: fix git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: make tools
@@ -36,7 +54,9 @@ jobs:
     container:
       image: quay.io/libpod/fedora_podman:${{ vars.IMAGE_TAG }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: fix git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: remove pre-installed skopeo package
@@ -48,25 +68,37 @@ jobs:
       - run: make BUILDTAGS=containers_image_openpgp validate-docs
 
   cross:
-    needs: validate
-    if: "!contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')"
+    needs: [validate, path-filter]
+    if: >-
+      !contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')
+      && (github.event_name != 'pull_request'
+          || needs.path-filter.outputs.all == 'true'
+          || needs.path-filter.outputs.code == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
           go-version: stable
       - run: make BUILDTAGS=containers_image_openpgp local-cross
 
   osx:
-    needs: validate
-    if: "!contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')"
+    needs: [validate, path-filter]
+    if: >-
+      !contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')
+      && (github.event_name != 'pull_request'
+          || needs.path-filter.outputs.all == 'true'
+          || needs.path-filter.outputs.code == 'true')
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
           go-version: stable
       - name: configure GOPATH (Makefile resolves GOBIN as $(GOPATH)/bin)
@@ -103,7 +135,9 @@ jobs:
       image: quay.io/libpod/skopeo_cidev:${{ vars.IMAGE_TAG }}
       options: --privileged
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: fix git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: make vendor
@@ -116,14 +150,20 @@ jobs:
       - run: make "BUILDTAGS=${{ matrix.buildtags }}" test-system-local
 
   ostree_rs_ext:
-    needs: validate
-    if: "!contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')"
+    needs: [validate, path-filter]
+    if: >-
+      !contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')
+      && (github.event_name != 'pull_request'
+          || needs.path-filter.outputs.all == 'true'
+          || needs.path-filter.outputs.code == 'true')
     runs-on: oracle-vm-4cpu-16gb-x86-64
     timeout-minutes: 45
     container:
       image: quay.io/coreos-assembler/fcos-buildroot:testing-devel
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - name: fix git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: install rustup stable
@@ -146,12 +186,26 @@ jobs:
           cd /tmp/ostree-rs-ext
           cargo test -- --nocapture --quiet
 
+  # Merge protection is set up for this job name, do not change it.
   success:
-    needs: [validate, doccheck, cross, osx, test_skopeo, ostree_rs_ext]
+    name: "Total Success"
+    needs:
+      - path-filter
+      - validate
+      - doccheck
+      - cross
+      - osx
+      - test_skopeo
+      - ostree_rs_ext
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: check all required jobs succeeded
+      - name: Check all required jobs
         run: |
-          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All required jobs passed or were skipped"
