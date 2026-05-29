@@ -33,7 +33,7 @@ jobs:
     runs-on: oracle-vm-4cpu-16gb-x86-64
     timeout-minutes: 45
     container:
-      image: quay.io/libpod/skopeo_cidev:${{ vars.IMAGE_TAG }}
+      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -52,7 +52,7 @@ jobs:
     runs-on: oracle-vm-4cpu-16gb-x86-64
     timeout-minutes: 45
     container:
-      image: quay.io/libpod/fedora_podman:${{ vars.IMAGE_TAG }}
+      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -132,7 +132,7 @@ jobs:
           - name: Skopeo Test w/ Sequoia
             buildtags: containers_image_sequoia
     container:
-      image: quay.io/libpod/skopeo_cidev:${{ vars.IMAGE_TAG }}
+      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
       options: --privileged
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
