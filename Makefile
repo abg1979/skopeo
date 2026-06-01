@@ -68,10 +68,11 @@ CI ?=
 # modify local configuration files and services.
 export SKOPEO_CONTAINER_TESTS ?= $(if $(CI),1,0)
 
-# This is a compromise, we either use a container for this or require
-# the local user to have a compatible python3 development environment.
-# Define it as a "resolve on use" variable to avoid calling out when possible
-SKOPEO_CIDEV_CONTAINER_FQIN ?= $(shell hack/get_fqin.sh)
+# Container image used by the test-integration / test-system wrapper targets.
+# Set this to a skopeo_cidev image (e.g. quay.io/libpod/skopeo_cidev:<tag>)
+# when running those targets locally. If unset, the wrapper targets will fail
+# loudly with an empty image reference.
+SKOPEO_CIDEV_CONTAINER_FQIN ?=
 CONTAINER_CMD ?= ${CONTAINER_RUNTIME} run --rm -i -e TESTFLAGS="$(TESTFLAGS)" -e CI=$(CI) -e SKOPEO_CONTAINER_TESTS=1
 # if this session isn't interactive, then we don't want to allocate a
 # TTY, which would fail, but if it is interactive, we do want to attach
@@ -106,7 +107,7 @@ endif
 all: bin/skopeo docs
 
 codespell:
-	codespell -S Makefile,build,buildah,buildah.spec,imgtype,copy,AUTHORS,bin,vendor,.git,go.sum,CHANGELOG.md,changelog.txt,seccomp.json,.cirrus.yml,"*.xz,*.gz,*.tar,*.tgz,*ico,*.png,*.1,*.5,*.orig,*.rej" -L fpr,uint,iff,od,ERRO -w
+	codespell -S Makefile,build,buildah,buildah.spec,imgtype,copy,AUTHORS,bin,vendor,.git,go.sum,CHANGELOG.md,changelog.txt,seccomp.json,"*.xz,*.gz,*.tar,*.tgz,*ico,*.png,*.1,*.5,*.orig,*.rej" -L fpr,uint,iff,od,ERRO -w
 
 help:
 	@echo "Usage: make <target>"
