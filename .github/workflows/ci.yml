@@ -33,7 +33,7 @@ jobs:
     runs-on: cncf-ubuntu-4-16-x86
     timeout-minutes: 45
     container:
-      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
@@ -52,7 +52,7 @@ jobs:
     runs-on: cncf-ubuntu-4-16-x86
     timeout-minutes: 45
     container:
-      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
@@ -132,7 +132,7 @@ jobs:
           - name: Skopeo Test w/ Sequoia
             buildtags: containers_image_sequoia
     container:
-      image: quay.io/libpod/skopeo_cidev:c20260310t170224z-f43f42d14 # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
       options: --privileged
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
