@@ -187,8 +187,6 @@ Copy from docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enab
 
 Copy to docker daemon at _host_. If _host_ starts with `tcp://`, HTTPS is enabled by default. To use plain HTTP, use the form `http://` (default is `unix:///var/run/docker.sock`).
 
-Existing signatures, if any, are preserved as well.
-
 **--dest-compress-format** _format_
 
 Specifies the compression format to use.  Supported values are: `gzip`, `zstd` and `zstd:chunked`.
