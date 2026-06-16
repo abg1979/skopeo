@@ -66,7 +66,7 @@ Run the sync without actually copying data to the destination.
 
 **--help**, **-h**
 
-Print usage statement.
+Print usage statement
 
 **--scoped** Prefix images with the source image path, so that multiple images with the same name can be stored at _destination_.
 
