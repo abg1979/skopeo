@@ -173,7 +173,7 @@ $ skopeo list-tags docker-archive:/tmp/four-tags-with-an-untag.tar
 ```
 
 
-# SEE ALSO
+## SEE ALSO
 skopeo(1), skopeo-login(1), docker-login(1), containers-auth.json(5), containers-transports(1)
 
 ## AUTHORS
