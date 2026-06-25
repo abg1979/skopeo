@@ -58,7 +58,7 @@ Individual subcommands have their own options.
 
 **--command-timeout** _duration_
 
-Timeout for the command execution.
+Timeout for the command execution (e.g. 30s, 10m).
 
 **--debug**
 
