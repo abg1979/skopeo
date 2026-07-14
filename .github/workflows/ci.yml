@@ -12,6 +12,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  # CI automation repo release for the VM image downloads in ci.sh.
+  # ENV is managed by renovate, do not change the name without
+  # updating the renovate config in the automation repo.
+  AUTOMATION_RELEASE: 20260603t174659z
+
 jobs:
   path-filter:
     runs-on: ubuntu-latest
@@ -20,6 +26,7 @@ jobs:
       all: ${{ steps.filter.outputs.all }}
       code: ${{ steps.filter.outputs.code }}
       docs: ${{ steps.filter.outputs.docs }}
+      AUTOMATION_RELEASE: ${{ steps.automation.outputs.AUTOMATION_RELEASE }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
@@ -28,12 +35,20 @@ jobs:
         id: filter
         with:
           filters: .github/filters.yaml
+      # For some reason github decided that using ${{ env }} is not valid inside a container image name.
+      # As such we must work around this, using outputs there is valid so we need this job to convert the
+      # env into an output. Since we already have the path-filter job we might as well reuse it.
+      - name: set AUTOMATION_RELEASE output
+        id: automation
+        run: echo "AUTOMATION_RELEASE=${AUTOMATION_RELEASE}" >> $GITHUB_OUTPUT
+
 
   validate:
+    needs: path-filter
     runs-on: cncf-ubuntu-4-16-x86
     timeout-minutes: 45
     container:
-      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:${{ needs.path-filter.outputs.AUTOMATION_RELEASE }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
@@ -48,11 +63,11 @@ jobs:
           hack/tree_status.sh
 
   doccheck:
-    needs: validate
+    needs: [validate, path-filter]
     runs-on: cncf-ubuntu-4-16-x86
     timeout-minutes: 45
     container:
-      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:${{ needs.path-filter.outputs.AUTOMATION_RELEASE }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
@@ -114,7 +129,7 @@ jobs:
       - run: ./bin/skopeo -v
 
   test_skopeo:
-    needs: validate
+    needs: [validate, path-filter]
     if: >-
       !contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:DOCS]')
       && !contains(github.event.pull_request.title || github.event.head_commit.message, '[CI:BUILD]')
@@ -132,7 +147,7 @@ jobs:
           - name: Skopeo Test w/ Sequoia
             buildtags: containers_image_sequoia
     container:
-      image: ghcr.io/podman-container-tools/skopeo_cidev:20260603t174659z # FIXME: Should be Renovate-managed.
+      image: ghcr.io/podman-container-tools/skopeo_cidev:${{ needs.path-filter.outputs.AUTOMATION_RELEASE }}
       options: --privileged
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
